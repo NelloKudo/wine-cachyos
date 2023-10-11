@@ -2527,6 +2527,24 @@ static BOOL surface_get_fshack_dpi( struct surface *surface )
     return fshack_enabled && dpi != raw ? raw : 0;
 }
 
+static VkResult win32u_vkSetLatencySleepModeNV( VkDevice device, VkSwapchainKHR swapchain, const VkLatencySleepModeInfoNV *pSleepModeInfo )
+{
+    VkLatencySleepModeInfoNV sleep_mode_info_host;
+
+    struct vulkan_device *vk_device = vulkan_device_from_handle( device );
+    struct swapchain *vk_swapchain = swapchain_from_handle( swapchain );
+
+    vk_device->low_latency_enabled = pSleepModeInfo->lowLatencyMode;
+
+    sleep_mode_info_host.sType = VK_STRUCTURE_TYPE_LATENCY_SLEEP_MODE_INFO_NV;
+    sleep_mode_info_host.pNext = NULL;
+    sleep_mode_info_host.lowLatencyMode = pSleepModeInfo->lowLatencyMode;
+    sleep_mode_info_host.lowLatencyBoost = pSleepModeInfo->lowLatencyBoost;
+    sleep_mode_info_host.minimumIntervalUs = pSleepModeInfo->minimumIntervalUs;
+
+    return vk_device->p_vkSetLatencySleepModeNV( vk_device->host.device, vk_swapchain->obj.host.swapchain, &sleep_mode_info_host );
+}
+
 static VkResult win32u_vkCreateSwapchainKHR( VkDevice client_device, const VkSwapchainCreateInfoKHR *create_info,
                                              const VkAllocationCallbacks *allocator, VkSwapchainKHR *ret )
 {
@@ -2906,6 +2924,20 @@ static VkResult record_compute_cmd( struct vulkan_device *device, struct swapcha
     return VK_SUCCESS;
 }
 
+#define win32u_vk_find_struct(s, t) win32u_vk_find_struct_((void *)s, VK_STRUCTURE_TYPE_##t)
+static void *win32u_vk_find_struct_(void *s, VkStructureType t)
+{
+    VkBaseOutStructure *header;
+
+    for (header = s; header; header = header->pNext)
+    {
+        if (header->sType == t)
+            return header;
+    }
+
+    return NULL;
+}
+
 static VkResult win32u_vkQueuePresentKHR( VkQueue client_queue, const VkPresentInfoKHR *client_present_info )
 {
     static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
@@ -2978,6 +3010,8 @@ static VkResult win32u_vkQueuePresentKHR( VkQueue client_queue, const VkPresentI
     if (blit_count)
     {
         VkSubmitInfo submit_info = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        VkLatencySubmissionPresentIdNV latencySubmitInfo;
+        VkPresentIdKHR *present_id;
         VkPipelineStageFlags *stages;
 
         if (!(stages = mem_alloc( &pool, sizeof(VkPipelineStageFlags) * present_info->waitSemaphoreCount ))) goto failed;
@@ -2991,6 +3025,16 @@ static VkResult win32u_vkQueuePresentKHR( VkQueue client_queue, const VkPresentI
         submit_info.pCommandBuffers = blit_cmds;
         submit_info.signalSemaphoreCount = 1;
         submit_info.pSignalSemaphores = &blit_sema;
+
+        if (queue->device->low_latency_enabled &&
+            (present_id = win32u_vk_find_struct( present_info, PRESENT_ID_KHR )))
+        {
+            latencySubmitInfo.sType = VK_STRUCTURE_TYPE_LATENCY_SUBMISSION_PRESENT_ID_NV;
+            latencySubmitInfo.pNext = NULL;
+            latencySubmitInfo.presentID = *present_id->pPresentIds;
+            submit_info.pNext = &latencySubmitInfo;
+        }
+
         device->p_vkQueueSubmit( queue->host.queue, 1, &submit_info, VK_NULL_HANDLE );
 
         present_info->waitSemaphoreCount = 1;
@@ -3943,6 +3987,7 @@ static struct vulkan_funcs vulkan_funcs =
     .p_vkQueueSubmit2KHR = win32u_vkQueueSubmit2KHR,
     .p_vkUnmapMemory = win32u_vkUnmapMemory,
     .p_vkUnmapMemory2KHR = win32u_vkUnmapMemory2KHR,
+    .p_vkSetLatencySleepModeNV = win32u_vkSetLatencySleepModeNV,
 };
 
 static VkResult nulldrv_vulkan_surface_create( HWND hwnd, BOOL raw, const struct vulkan_instance *instance,

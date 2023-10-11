@@ -222,6 +222,8 @@ struct vulkan_device
     uint64_t queue_count;
     struct vulkan_queue *queues;
     VkQueueFamilyProperties *queue_props;
+
+    BOOL low_latency_enabled;
 };
 
 static inline struct vulkan_device *vulkan_device_from_handle( VkDevice handle )
@@ -359,6 +361,7 @@ struct vulkan_funcs
     PFN_vkQueueSubmit2KHR p_vkQueueSubmit2KHR;
     PFN_vkUnmapMemory p_vkUnmapMemory;
     PFN_vkUnmapMemory2KHR p_vkUnmapMemory2KHR;
+    PFN_vkSetLatencySleepModeNV p_vkSetLatencySleepModeNV;
 };
 
 /* interface between win32u and the user drivers */
