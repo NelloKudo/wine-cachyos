@@ -220,6 +220,7 @@ extern BOOL alert_simulate_sched_quantum;
 extern BOOL fsync_simulate_sched_quantum;
 extern BOOL fsync_yield_to_waiters;
 
+extern BOOL disable_sfn;
 extern BOOL ac_odyssey;
 
 extern void init_environment(void);
