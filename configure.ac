@@ -2162,7 +2162,6 @@ AC_CHECK_FUNCS(\
         dladdr1 \
 	dlinfo \
 	epoll_create \
-	epoll_pwait2 \
 	fstatfs \
 	futimens \
 	futimes \
