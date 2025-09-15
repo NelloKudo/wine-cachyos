@@ -26,7 +26,6 @@
 GST_ELEMENT_REGISTER_DECLARE(protonvideoconverter);
 GST_ELEMENT_REGISTER_DECLARE(protonaudioconverter);
 GST_ELEMENT_REGISTER_DECLARE(protonaudioconverterbin);
-GST_ELEMENT_REGISTER_DECLARE(protondemuxer);
 
 GST_DEBUG_CATEGORY(media_converter_debug);
 
@@ -323,12 +322,6 @@ bool media_converter_init(void)
     if (!GST_ELEMENT_REGISTER(protonaudioconverterbin, NULL))
     {
         GST_ERROR("Failed to register protonaudioconverterbin.");
-        return false;
-    }
-
-    if (!GST_ELEMENT_REGISTER(protondemuxer, NULL))
-    {
-        GST_ERROR("Failed to register protondemuxer.");
         return false;
     }
 
