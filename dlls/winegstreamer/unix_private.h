@@ -124,36 +124,6 @@ extern bool media_converter_init(void);
 extern bool get_untranscoded_stream_format(GstElement *container, uint32_t stream_index,
         struct wg_format *codec_format);
 
-static inline void touch_h264_used_tag(void)
-{
-    const char *e;
-
-    GST_LOG("h264 is used");
-
-    if ((e = getenv("STEAM_COMPAT_TRANSCODED_MEDIA_PATH")))
-    {
-        char buffer[PATH_MAX];
-        int fd;
-
-        snprintf(buffer, sizeof(buffer), "%s/h264-used", e);
-
-        fd = open(buffer, O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-        if (fd == -1)
-        {
-            GST_WARNING("Failed to open/create \"%s/h264-used\"", e);
-            return;
-        }
-
-        futimens(fd, NULL);
-
-        close(fd);
-    }
-    else
-    {
-        GST_WARNING("STEAM_COMPAT_TRANSCODED_MEDIA_PATH not set, cannot create h264-used file");
-    }
-}
-
 GST_ELEMENT_REGISTER_DECLARE(winegstreamerstepper);
 
 #endif /* __WINE_WINEGSTREAMER_UNIX_PRIVATE_H */
