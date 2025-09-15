@@ -682,17 +682,14 @@ static int audio_conv_state_create(struct audio_conv_state **out)
     char *read_fozdb_path;
     int ret;
 
-    if ((read_fozdb_path = getenv("MEDIACONV_AUDIO_TRANSCODED_FILE")))
-    {
-        if ((ret = fozdb_create(read_fozdb_path, O_RDONLY, true /* Read-only? */,
-                AUDIO_CONV_FOZ_NUM_TAGS, &fozdb)) < 0)
-            GST_ERROR("Failed to create fozdb from %s, ret %d.", read_fozdb_path, ret);
-    }
-    else
+    if (!(read_fozdb_path = getenv("MEDIACONV_AUDIO_TRANSCODED_FILE")))
     {
         GST_ERROR("Env MEDIACONV_AUDIO_TRANSCODED_FILE is not set!");
-        ret = CONV_ERROR_ENV_NOT_SET;
+        return CONV_ERROR_ENV_NOT_SET;
     }
+
+    if ((ret = fozdb_create(read_fozdb_path, O_RDONLY, true /* Read-only? */, AUDIO_CONV_FOZ_NUM_TAGS, &fozdb)) < 0)
+        GST_ERROR("Failed to create fozdb from %s, ret %d.", read_fozdb_path, ret);
 
     state = calloc(1, sizeof(*state));
     murmur3_128_state_init(&state->hash_state, HASH_SEED);
@@ -701,7 +698,7 @@ static int audio_conv_state_create(struct audio_conv_state **out)
     state->read_fozdb = fozdb;
 
     *out = state;
-    return ret;
+    return CONV_OK;
 }
 
 static void audio_conv_state_release(struct audio_conv_state *state)
@@ -873,7 +870,10 @@ static GstStateChangeReturn audio_conv_change_state(GstElement *element, GstStat
 
         /* Create audio conv state. */
         if ((ret = audio_conv_state_create(&state)) < 0)
+        {
             GST_ERROR("Failed to create audio conv state, ret %d.", ret);
+            return GST_STATE_CHANGE_FAILURE;
+        }
         pthread_mutex_lock(&conv->state_mutex);
         assert(!conv->state);
         conv->state = state;
