@@ -88,12 +88,6 @@ struct hashes_reader
     GList *current_hash;
 };
 
-enum video_conv_state_flags
-{
-    VIDEO_CONV_STREAM_STARTED = 1,
-    VIDEO_CONV_HAS_TRANSCODED = 2,
-};
-
 struct video_conv_state
 {
     struct payload_hash transcode_hash;
@@ -102,7 +96,7 @@ struct video_conv_state
     uint64_t upstream_duration;
     uint64_t our_duration;
     uint32_t transcoded_tag;
-    uint32_t state_flags;
+    bool has_transcoded, need_stream_start;
 };
 
 typedef struct
@@ -373,6 +367,7 @@ static int video_conv_state_create(struct video_conv_state **out)
     state->upstream_duration = DURATION_NONE;
     state->our_duration = blank_file_size;
     state->transcoded_tag = VIDEO_CONV_FOZ_TAG_MKVDATA;
+    state->need_stream_start = true;
 
     *out = state;
     return ret;
@@ -401,7 +396,7 @@ bool video_conv_state_begin_transcode(struct video_conv_state *state, struct pay
             state->transcode_hash = *hash;
             state->our_duration = entry_size;
             state->transcoded_tag = VIDEO_CONV_FOZ_TAG_MKVDATA;
-            state->state_flags |= VIDEO_CONV_HAS_TRANSCODED;
+            state->has_transcoded = true;
             return true;
         }
 
@@ -411,13 +406,13 @@ bool video_conv_state_begin_transcode(struct video_conv_state *state, struct pay
             state->transcode_hash = *hash;
             state->our_duration = entry_size;
             state->transcoded_tag = VIDEO_CONV_FOZ_TAG_OGVDATA;
-            state->state_flags |= VIDEO_CONV_HAS_TRANSCODED;
+            state->has_transcoded = true;
             return true;
         }
     }
 
     GST_INFO("No transcoded video for %s. Substituting a blank video.", format_hash(hash));
-    state->state_flags &= ~VIDEO_CONV_HAS_TRANSCODED;
+    state->has_transcoded = false;
 
     create_placeholder_file("placeholder-video-used");
 
@@ -431,7 +426,7 @@ int video_conv_state_fill_buffer(struct video_conv_state *state, uint64_t offset
     bool read_ok;
     int ret;
 
-    if (state->state_flags & VIDEO_CONV_HAS_TRANSCODED)
+    if (state->has_transcoded)
     {
         if ((ret = fozdb_read_entry_data(state->read_fozdb, state->transcoded_tag, &state->transcode_hash,
                 offset, buffer, size, fill_size, false)) < 0)
@@ -631,7 +626,7 @@ static void video_conv_init_transcode(VideoConv *conv)
     struct payload_hash hash;
     int ret;
 
-    if (state->state_flags & VIDEO_CONV_HAS_TRANSCODED)
+    if (state->has_transcoded)
         return;
 
     pthread_mutex_lock(&dump_fozdb.mutex);
@@ -664,7 +659,7 @@ static gboolean video_conv_push_stream_start(VideoConv *conv, struct payload_has
         GST_ERROR("VideoConv not yet in READY state?");
         return false;
     }
-    state->state_flags |= VIDEO_CONV_STREAM_STARTED;
+    state->need_stream_start = false;
     pthread_mutex_unlock(&conv->state_mutex);
 
     return true;
@@ -861,7 +856,8 @@ static gboolean video_conv_src_active_mode(GstPad *pad, GstObject *parent, GstPa
     VideoConv *conv = VIDEO_CONV(parent);
     struct video_conv_state *state;
     struct payload_hash hash;
-    uint32_t state_flags;
+    bool need_stream_start;
+    bool has_transcoded;
 
     GST_DEBUG_OBJECT(pad, "mode %s, active %d.", gst_pad_mode_get_name(mode), active);
 
@@ -883,13 +879,14 @@ static gboolean video_conv_src_active_mode(GstPad *pad, GstObject *parent, GstPa
 
     video_conv_init_transcode(conv);
     hash = state->transcode_hash;
-    state_flags = state->state_flags;
+    need_stream_start = state->need_stream_start;
+    has_transcoded = state->has_transcoded;
 
     /* push_event, below, can also grab state and cause a deadlock, so make sure it's
      * unlocked before calling */
     pthread_mutex_unlock(&conv->state_mutex);
 
-    if (active && !(state_flags & VIDEO_CONV_STREAM_STARTED) && (state_flags & VIDEO_CONV_HAS_TRANSCODED))
+    if (need_stream_start && active && has_transcoded)
         return video_conv_push_stream_start(conv, &hash);
     return true;
 }
