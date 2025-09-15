@@ -27,11 +27,6 @@
 #include <gst/gst.h>
 #include <gst/audio/audio.h>
 
-#include <stdio.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-
 /* unixlib.c */
 
 GST_DEBUG_CATEGORY_EXTERN(wine);
@@ -118,11 +113,6 @@ extern void wg_allocator_destroy(GstAllocator *allocator);
 extern void wg_allocator_provide_sample(GstAllocator *allocator, struct wg_sample *sample);
 extern void wg_allocator_release_sample(GstAllocator *allocator, struct wg_sample *sample,
         bool discard_data);
-
-/* media-converter */
-extern bool media_converter_init(void);
-extern bool get_untranscoded_stream_format(GstElement *container, uint32_t stream_index,
-        struct wg_format *codec_format);
 
 GST_ELEMENT_REGISTER_DECLARE(winegstreamerstepper);
 

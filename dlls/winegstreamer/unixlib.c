@@ -47,6 +47,8 @@
 
 GST_DEBUG_CATEGORY(wine);
 
+extern bool media_converter_init(void);
+
 static UINT thread_count;
 
 GstStreamType stream_type_from_caps(GstCaps *caps)
