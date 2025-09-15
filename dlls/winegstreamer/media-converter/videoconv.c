@@ -669,23 +669,6 @@ static void video_conv_init_transcode(VideoConv *conv)
     pthread_mutex_unlock(&dump_fozdb.mutex);
 }
 
-static gboolean video_conv_push_stream_start(VideoConv *conv, struct payload_hash *hash)
-{
-    struct video_conv_state *state;
-
-    push_event(conv->src_pad, gst_event_new_stream_start(format_hash(hash)));
-
-    if (!(state = video_conv_lock_state(conv)))
-    {
-        GST_ERROR("VideoConv not yet in READY state?");
-        return false;
-    }
-    state->need_stream_start = false;
-    pthread_mutex_unlock(&conv->state_mutex);
-
-    return true;
-}
-
 static gboolean video_conv_sink_event_caps(VideoConv *conv, GstEvent *event)
 {
     struct video_conv_state *state;
@@ -902,7 +885,18 @@ static gboolean video_conv_src_active_mode(GstPad *pad, GstObject *parent, GstPa
     pthread_mutex_unlock(&conv->state_mutex);
 
     if (need_stream_start && active && has_transcoded)
-        return video_conv_push_stream_start(conv, &hash);
+    {
+        push_event(conv->src_pad, gst_event_new_stream_start(format_hash(&hash)));
+
+        if (!(state = video_conv_lock_state(conv)))
+        {
+            GST_ERROR("VideoConv not yet in READY state?");
+            return false;
+        }
+        state->need_stream_start = false;
+        pthread_mutex_unlock(&conv->state_mutex);
+    }
+
     return true;
 }
 
