@@ -36,16 +36,12 @@
 #include <gst/audio/audio.h>
 #include <gst/tag/tag.h>
 
-#include <gst/gl/gl.h>
-
 #include "ntstatus.h"
 #define WIN32_NO_STATUS
 #include "winternl.h"
 #include "dshow.h"
 
 #include "unix_private.h"
-
-extern GstGLDisplay *gl_display;
 
 typedef enum
 {
@@ -104,8 +100,6 @@ struct wg_parser
     struct input_cache_chunk input_cache_chunks[4];
 
     bool use_mediaconv;
-    bool use_opengl;
-    GstContext *context;
 };
 static const unsigned int input_cache_chunk_size = 512 << 10;
 
@@ -1035,32 +1029,7 @@ static bool stream_create_post_processing_elements(GstPad *pad, struct wg_parser
     name = gst_structure_get_name(gst_caps_get_structure(caps, 0));
     gst_caps_unref(caps);
 
-    if (!strcmp(name, "video/x-raw") && parser->use_opengl)
-    {
-        if (!(element = create_element("glupload", "base"))
-                || !append_element(parser->container, element, &first, &last))
-            return false;
-        if (!(element = create_element("glcolorconvert", "base"))
-                || !append_element(parser->container, element, &first, &last))
-            return false;
-        if (!(element = create_element("glvideoflip", "base"))
-                || !append_element(parser->container, element, &first, &last))
-            return false;
-        stream->flip = element;
-        if (!(element = create_element("gldeinterlace", "base"))
-                || !append_element(parser->container, element, &first, &last))
-            return false;
-        if (!(element = create_element("glcolorconvert", "base"))
-                || !append_element(parser->container, element, &first, &last))
-            return false;
-        if (!(element = create_element("gldownload", "base"))
-                || !append_element(parser->container, element, &first, &last))
-            return false;
-
-        if (!link_src_to_element(pad, first) || !link_element_to_sink(last, stream->my_sink))
-            return false;
-    }
-    else if (!strcmp(name, "video/x-raw"))
+    if (!strcmp(name, "video/x-raw"))
     {
         /* Hack?: Flatten down the colorimetry to default values, without
          * actually modifying the video at all.
@@ -1872,8 +1841,6 @@ static NTSTATUS wg_parser_connect(void *args)
 
     parser->container = gst_bin_new(NULL);
     gst_element_set_bus(parser->container, parser->bus);
-    if (parser->context)
-        gst_element_set_context(parser->container, parser->context);
 
     parser->my_src = gst_pad_new_from_static_template(&src_template, "quartz-src");
     gst_pad_set_getrange_function(parser->my_src, src_getrange_cb);
@@ -2135,16 +2102,6 @@ static NTSTATUS wg_parser_create(void *args)
 
     if (!(parser = calloc(1, sizeof(*parser))))
         return E_OUTOFMEMORY;
-    if ((parser->use_opengl = params->use_opengl && gl_display))
-    {
-        if ((parser->context = gst_context_new(GST_GL_DISPLAY_CONTEXT_TYPE, false)))
-            gst_context_set_gl_display(parser->context, gl_display);
-        else
-        {
-            GST_ERROR("Failed to create parser context");
-            parser->use_opengl = FALSE;
-        }
-    }
     if (!(parser->task_pool = wg_task_pool_new()))
     {
         free(parser);
@@ -2174,9 +2131,6 @@ static NTSTATUS wg_parser_destroy(void *args)
         gst_object_unref(parser->bus);
     }
     gst_object_unref(parser->task_pool);
-
-    if (parser->context)
-        gst_context_unref(parser->context);
 
     pthread_mutex_destroy(&parser->mutex);
     pthread_cond_destroy(&parser->init_cond);
