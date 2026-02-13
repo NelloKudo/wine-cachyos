@@ -2460,13 +2460,9 @@ else
     enable_wow64cpu=${enable_wow64cpu:-no}
     enable_xtajit64=${enable_xtajit64:-no}
     enable_compiler_rt=${enable_compiler_rt:-no}
-fi
-
-if test "$host_cpu" = "x86_64"
-then
-    enable_loader64=${enable_loader64:-yes}
-else
-    enable_loader64=${enable_loader64:-no}
+    dnl Disable modules that need C++
+    enable_icu=${enable_icu:-no}
+    enable_dmsynth=${enable_dmsynth:-no}
 fi
 
 dnl Disable some programs for other PE archs
@@ -2857,6 +2853,7 @@ WINE_CONFIG_MAKEFILE(dlls/iccvid/tests)
 WINE_CONFIG_MAKEFILE(dlls/icmp)
 WINE_CONFIG_MAKEFILE(dlls/icmui)
 WINE_CONFIG_MAKEFILE(dlls/icmui/tests)
+WINE_CONFIG_MAKEFILE(dlls/icu)
 WINE_CONFIG_MAKEFILE(dlls/ieframe)
 WINE_CONFIG_MAKEFILE(dlls/ieframe/tests)
 WINE_CONFIG_MAKEFILE(dlls/ieproxy)
