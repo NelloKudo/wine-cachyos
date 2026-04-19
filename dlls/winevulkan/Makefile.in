@@ -3,7 +3,6 @@ UNIXLIB   = winevulkan.so
 IMPORTLIB = winevulkan
 IMPORTS   = advapi32
 UNIX_LIBS = -lwin32u $(PTHREAD_LIBS)
-EXTRADEFS = -DNDEBUG
 
 SOURCES = \
 	loader.c \
