@@ -612,7 +612,7 @@ BOOL loaddll_redirect(LPCWSTR name, LPWSTR override, DWORD size)
     return FALSE;
 }
 
-BOOL loaddll_replace(LPCWSTR name, LPWSTR override, DWORD size)
+BOOL loaddll_upscaler_hack(LPCWSTR name, LPWSTR override, DWORD size)
 {
     WCHAR dllW[64] = {0};
     WCHAR envW[64] = {0};
@@ -626,11 +626,11 @@ BOOL loaddll_replace(LPCWSTR name, LPWSTR override, DWORD size)
         return TRUE;
     }
 
-    ret = GetEnvironmentVariableW( L"WINE_LOADDLL_REPLACE", envW, sizeof(envW));
+    ret = GetEnvironmentVariableW( L"WINE_UPSCALER_REPLACE", envW, sizeof(envW));
     if ( !ret ) return FALSE;
     if ( ret > ARRAY_SIZE(envW) )
     {
-        ERR("WINE_LOADDLL_REPLACE larger than %lu (%u)\n", (unsigned long)ARRAY_SIZE(envW), ret);
+        ERR("WINE_UPSCALER_REPLACE larger than %lu (%u)\n", (unsigned long)ARRAY_SIZE(envW), ret);
         return FALSE;
     }
 
@@ -688,7 +688,7 @@ HMODULE WINAPI DECLSPEC_HOTPATCH LoadLibraryExW( LPCWSTR name, HANDLE file, DWOR
         flags = 0;
     }
 
-    if ( loaddll_replace(name, overrideW, ARRAY_SIZE(overrideW)) || loaddll_redirect(name, overrideW, ARRAY_SIZE(overrideW)) )
+    if ( loaddll_upscaler_hack(name, overrideW, ARRAY_SIZE(overrideW)) || loaddll_redirect(name, overrideW, ARRAY_SIZE(overrideW)) )
         FIXME( "HACK: replaced %s with %s\n", debugstr_w(name), debugstr_w(overrideW));
 
     RtlInitUnicodeString( &str, overrideW[0] ? overrideW : name );
